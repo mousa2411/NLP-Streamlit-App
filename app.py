@@ -2,6 +2,12 @@ import streamlit as st
 from PIL import Image
 from transformers import pipeline
 import logging
+import gensim
+from gensim import corpora
+from gensim.models import LdaModel
+from gensim.utils import simple_preprocess
+from gensim.parsing.preprocessing import STOPWORDS
+
 
 # Configure logging
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -24,10 +30,51 @@ def process_file(file, process_type):
         # Return the generated summary as bytes
         return summary.encode("utf-8")
         
-    elif process_type == 'NLP Process':
+    elif process_type == 'Topic Modelling':
         logging.info("Running NLP Process for file: %s", file.name)
         # Perform any desired operations on the text
         # ...
+
+        # Define the Streamlit app
+        st.title("NLP Topic Modeling")
+            
+            # User input for documents
+        documents = st.text_area("Enter your documents (one document per line):")
+        if st.button("Run Topic Modeling"):
+            processed_docs = preprocess_lda(documents)
+            dictionary, corpus = create_corpus(processed_docs)
+            lda_model = train_lda_model(corpus, dictionary)
+            display_topics(lda_model)
+        
+        # Preprocess the documents
+        def preprocess_lda(documents):
+            processed_docs = []
+            for doc in documents.splitlines():
+                processed_docs.append(simple_preprocess(doc, deacc=True))
+            return processed_docs
+        
+        # Create a dictionary and corpus
+        def create_corpus(processed_docs):
+            dictionary = corpora.Dictionary(processed_docs)
+            corpus = [dictionary.doc2bow(doc) for doc in processed_docs]
+            return dictionary, corpus
+        
+        # Train the LDA model
+        def train_lda_model(corpus, dictionary):
+            lda_model = LdaModel(corpus=corpus,
+                                 id2word=dictionary,
+                                 num_topics=2,
+                                 random_state=42,
+                                 passes=10)
+            return lda_model
+        
+        # Display the topics
+        def display_topics(lda_model):
+            for idx, topic in lda_model.print_topics():
+                st.write(f"Topic {idx + 1}: {topic}")
+        
+        
+        
         # Return the processed data as bytes
         return text.encode("utf-8")
 
@@ -47,7 +94,7 @@ def main():
     st.sidebar.image(Image.open(logo_path), use_column_width=True,)
     
     st.header("Select the process")
-    process_type = st.selectbox("Select the process", ['NLP Process', 'NLP Summarization'])
+    process_type = st.selectbox("Select the process", ['Topic Modelling', 'NLP Summarization'])
 
 
     # File upload section
